@@ -13,6 +13,14 @@ def reorder(store: int, cnx: mysql.connector.connection):
     try: 
         with cnx.cursor() as cursor:
             cursor.execute("SELECT SELL.upc, SELL.max_inventory, SELL.current_inventory, PRODUCT.product_name,  PRODUCT.brand_id, VENDOR.vendor_id FROM SELL JOIN PRODUCT ON SELL.UPC = PRODUCT.UPC JOIN BRAND ON PRODUCT.brand_id = BRAND.brand_id JOIN VENDOR ON VENDOR.vendor_id = BRAND.vendor_id WHERE SELL.store_id = 1;")
+            rows = cursor.fetchall()
+
+            # print header
+            print("UPC | Max Inventory | Current Inventory | Product Name | Brand ID | Vendor ID")
+            print("-" * 80)
+
+            for row in rows:
+                print(" | ".join(str(value) for value in row))
 
     
     except mysql.connector.Error as err:
