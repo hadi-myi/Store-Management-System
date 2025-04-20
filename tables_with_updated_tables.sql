@@ -166,7 +166,7 @@ CREATE TABLE PRODUCT_TYPE (
 
 -- Table for the types of products included in the online order
 CREATE TABLE ORDER_INCLUDES (
-    order_id INT AUTO_INCREMENT NOT NULL,
+    order_id INT NOT NULL,
     UPC CHAR(16) NOT NULL,
     buying_quantity INT,
     PRIMARY KEY (order_id, UPC),
