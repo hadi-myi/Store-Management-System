@@ -60,11 +60,17 @@ CREATE TABLE VENDOR (
     vendor_id INT PRIMARY KEY AUTO_INCREMENT,
     vendor_name VARCHAR(50) NOT NULL,
     vendor_phone VARCHAR(50) NOT NULL UNIQUE,
-    vendor_email VARCHAR(50) NOT NULL UNIQUE,
-    quantity INT NOT NULL,
-    unit_price DECIMAL(10, 2) NOT NULL
-);
+    vendor_email VARCHAR(50) NOT NULL UNIQUE
 
+);
+CREATE TABLE VENDOR_PRODUCTS (
+    UPC CHAR(16) NOT NULL,
+    vendor_id INT NOT NULL,
+    unit_price DECIMAL(10,2) NOT NULL,
+    PRIMARY KEY (UPC, vendor_id),
+    FOREIGN KEY (UPC) REFERENCES PRODUCT(UPC),
+    FOREIGN KEY (vendor_id) REFERENCES VENDOR(vendor_id)
+);
 -- Table: BRAND
 CREATE TABLE BRAND (
     brand_id INT PRIMARY KEY AUTO_INCREMENT,

@@ -66,9 +66,10 @@ VALUES
  TRUE, '10:00:00', '20:00:00',
  FALSE, NULL, NULL);
 
-INSERT INTO VENDOR (vendor_name, vendor_phone, vendor_email, quantity, unit_price) VALUES
-('PepsiCo', '1234567890', 'contact@pepsico.com', 1000, 3.50),
-('Nestle', '9876543210', 'support@nestle.com', 1500, 4.25);
+INSERT INTO VENDOR (vendor_name, vendor_phone, vendor_email) VALUES
+('PepsiCo', '1234567890', 'contact@pepsico.com'),
+('Nestle', '9876543210', 'support@nestle.com');
+
 
 INSERT INTO BRAND (brand_name, vendor_id) VALUES
 ('Pepsi', 1),
@@ -90,6 +91,25 @@ VALUES
 ('0000000000000010', 'Notebook', 'Japan', 0.300, 0.210, 0.010, 3.49, 2),
 ('0000000000000011', 'Electric Kettle', 'France', 0.330, 0.250, 0.300, 29.99, 1),
 ('0000000000000012', 'Hair Dryer', 'Brazil', 0.290, 0.180, 0.250, 39.99, 3);
+
+-- Products sold by vendor 1
+INSERT INTO VENDOR_PRODUCTS (UPC, vendor_id, unit_price) VALUES
+('0000000000000001', 1, 11.99),  
+('0000000000000002', 1, 14.99),  
+('0000000000000005', 1, 53.99), 
+('0000000000000006', 1, 29.99), 
+('0000000000000009', 1, 3.59), 
+('0000000000000010', 1, 2.09), 
+('0000000000000011', 1, 17.99);
+
+-- Products sold by vendor 2
+INSERT INTO VENDOR_PRODUCTS (UPC, vendor_id, unit_price) VALUES
+('0000000000000003', 2, 5.69),   
+('0000000000000004', 2, 1.79),  
+('0000000000000007', 2, 1.19),   
+('0000000000000008', 2, 20.99),  
+('0000000000000012', 2, 23.99);
+
 
 -- CUSTOMER
 INSERT INTO CUSTOMER (
