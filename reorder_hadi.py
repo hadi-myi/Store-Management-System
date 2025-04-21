@@ -27,7 +27,7 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 upc = row[0]
                 max_inv = row[1]
                 current_inv = row[2]
-                vendor_id = row[4]  # this is the actual vendor_id
+                vendor_id = row[4]
                 unit_price = row[5]
                 # calculate difference
                 diff = max_inv - current_inv
