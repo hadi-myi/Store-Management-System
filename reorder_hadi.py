@@ -32,9 +32,25 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 diff = max_inv - current_inv
                 # append as a tuple
                 differences.append((upc, diff))
-            
+            differences.sort()
             print(differences)
 
+            cursor.execute("SELECT REORDER_REQUEST.UPC, REORDER_REQUEST.quantity_requested FROM REORDER_REQUEST JOIN PRODUCT ON REORDER_REQUEST.UPC = PRODUCT.UPC JOIN BRAND ON PRODUCT.brand_id = BRAND.brand_id JOIN VENDOR ON BRAND.vendor_id = VENDOR.vendor_id;")
+
+            rows2 = cursor.fetchall()
+
+            reorders = []
+            for row in rows2:
+                reorders.append(row)
+            reorders.sort()
+            print(reorders)
+            
+            # source: https://stackoverflow.com/questions/1663807/how-do-i-iterate-through-two-lists-in-parallel
+
+            for a, b in zip(differences, reorders):
+                print(a,b)
+            
+            
     
     except mysql.connector.Error as err:
         print('Error while executing', cursor.statement, '--', str(err))
