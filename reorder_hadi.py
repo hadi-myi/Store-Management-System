@@ -1,5 +1,5 @@
 import mysql.connector
-
+from datetime import datetime
 from mysql.connector import errorcode
 """ A lot of the connection stuff here is adapted from teh safe connection with helper functions shared connections file from class"""
 
@@ -12,45 +12,101 @@ def reorder(store: int, cnx: mysql.connector.connection):
     # use cursor for sql queries
     try: 
         with cnx.cursor() as cursor:
-            cursor.execute("SELECT SELL.upc, SELL.max_inventory, SELL.current_inventory, PRODUCT.product_name,  PRODUCT.brand_id, VENDOR.vendor_id FROM SELL JOIN PRODUCT ON SELL.UPC = PRODUCT.UPC JOIN BRAND ON PRODUCT.brand_id = BRAND.brand_id JOIN VENDOR ON VENDOR.vendor_id = BRAND.vendor_id WHERE SELL.store_id = 1;")
+            cursor.execute("""SELECT SELL.upc, SELL.max_inventory, SELL.current_inventory,  PRODUCT.brand_id, VENDOR.vendor_id, VENDOR_PRODUCTS.unit_price 
+                           FROM SELL JOIN PRODUCT ON SELL.UPC = PRODUCT.UPC 
+                           JOIN BRAND ON PRODUCT.brand_id = BRAND.brand_id 
+                           JOIN VENDOR ON VENDOR.vendor_id = BRAND.vendor_id 
+                           JOIN VENDOR_PRODUCTS ON VENDOR.vendor_id = VENDOR_PRODUCTS.vendor_id AND PRODUCT.UPC = VENDOR_PRODUCTS.UPC 
+                           WHERE SELL.store_id = %s;""", (store,))
             rows = cursor.fetchall()
 
-            # print header
-            print("UPC | Max Inventory | Current Inventory | Product Name | Brand ID | Vendor ID")
-            print("-" * 80)
-
-            for row in rows:
-                print(" | ".join(str(value) for value in row))
-
-            # find the difference between max and current inventory, and append that to a list as a tuple
+    
+            # find the difference between max and current inventory, and append that to a list as a tuple with the vendor id and the unit price
             differences = []
             for row in rows:
                 upc = row[0]
                 max_inv = row[1]
                 current_inv = row[2]
+                vendor_id = row[4]  # this is the actual vendor_id
+                unit_price = row[5]
                 # calculate difference
                 diff = max_inv - current_inv
                 # append as a tuple
-                differences.append((upc, diff))
+                if diff > 0:
+                    differences.append((upc, diff, vendor_id, unit_price))
+            
+            # sort just because
             differences.sort()
-            print(differences)
-
-            cursor.execute("SELECT REORDER_REQUEST.UPC, REORDER_REQUEST.quantity_requested FROM REORDER_REQUEST JOIN PRODUCT ON REORDER_REQUEST.UPC = PRODUCT.UPC JOIN BRAND ON PRODUCT.brand_id = BRAND.brand_id JOIN VENDOR ON BRAND.vendor_id = VENDOR.vendor_id;")
+            
+            # get all the current reorders
+            cursor.execute("""SELECT UPC, SUM(quantity_requested) 
+                           FROM REORDER_REQUEST WHERE store_id = %s 
+                           GROUP BY UPC;""", (store,))
 
             rows2 = cursor.fetchall()
 
-            reorders = []
+            # append reorder info to dict
+            ordered = {}
             for row in rows2:
-                reorders.append(row)
-            reorders.sort()
-            print(reorders)
-            
-            # source: https://stackoverflow.com/questions/1663807/how-do-i-iterate-through-two-lists-in-parallel
+                upc = row[0]
+                qty = row[1]
+                ordered[upc] = qty
 
-            for a, b in zip(differences, reorders):
-                print(a,b)
+            # check the shipments
+            cursor.execute("""SELECT REORDER_REQUEST.UPC, SUM(REORDER_REQUEST.quantity_requested)
+                FROM SHIPMENT
+                JOIN REORDER_REQUEST ON SHIPMENT.reorder_id = REORDER_REQUEST.reorder_id
+                WHERE SHIPMENT.received_date IS NULL AND REORDER_REQUEST.store_id = %s
+                GROUP BY REORDER_REQUEST.UPC;""", (store,))
+
+            rows3 = cursor.fetchall()
+
+            shipped = {}
+            for row in rows3:
+                upc = row[0]
+                qty = row[1]
+                shipped[upc] = qty
+
+
+            reorders_vendor = {}
+            new_reorders = []
+            total_cost = 0
+            for upc, diff, vendor_id, unit_price in differences:
+                # return 0 if not in ordered or shipped
+                already_ordered = ordered.get(upc, 0)
+                already_shipped = shipped.get(upc, 0)
+                to_order = diff - already_ordered - already_shipped
+                
+                if to_order > 0:
+                    #insert our new values 
+                    try:
+                        cost = unit_price * to_order
+                        cursor.execute("""INSERT INTO REORDER_REQUEST 
+                                       (reorder_date, quantity_requested, total_cost, seen_status, vendor_id, UPC, store_id)
+                                       VALUES (%s, %s, %s, %s, %s, %s, %s);""", (datetime.now(), to_order, cost, False, vendor_id, upc, store))
+                        total_cost += cost
+                        vendors_reorders = reorders_vendor.get(vendor_id, 0)
+                        reorders_vendor[vendor_id] = vendors_reorders + 1
+                        new_reorders.append((upc, to_order))
+                    except mysql.connector.Error:
+                        raise ValueError("something went wrong adding order to reorder requests")
             
+            cnx.commit()
+
+            # print the info as instructed in the project doc
+            print("Summary")
+            print("-" * 10)
             
+            print(f"total cost of this batch of reorders = {total_cost}")
+            
+            print("-" * 10)
+
+            for upc, qty in new_reorders:
+                print(f"ordered {qty} of item {upc}")
+            print("-" * 10)
+            for vid, i in reorders_vendor.items():
+                print(f"vendor {vid} has to fullful {i} order(s)")
+
     
     except mysql.connector.Error as err:
         print('Error while executing', cursor.statement, '--', str(err))
