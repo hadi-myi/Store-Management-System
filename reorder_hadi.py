@@ -75,7 +75,6 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 # return 0 if not in ordered or shipped
                 already_ordered = ordered.get(upc, 0)
                 already_shipped = shipped.get(upc, 0)
-                to_order = diff - already_ordered - already_shipped
                 
                 if to_order > 0:
                     #insert our new values 
@@ -113,3 +112,23 @@ def reorder(store: int, cnx: mysql.connector.connection):
 
         # to "reset" the database back to its original state if sql queries fail
         cnx.rollback()
+
+
+""""
+Summary
+----------
+total cost of this batch of reorders = 5599.82
+----------
+ordered 44 of item 0000000000000002
+ordered 127 of item 0000000000000003
+ordered 24 of item 0000000000000005
+ordered 46 of item 0000000000000006
+ordered 3 of item 0000000000000008
+ordered 2 of item 0000000000000010
+ordered 82 of item 0000000000000011
+----------
+vendor 1 has to fullful 5 order(s)
+vendor 2 has to fullful 2 order(s)
+
+
+"""
