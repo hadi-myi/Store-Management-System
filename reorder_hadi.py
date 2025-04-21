@@ -75,6 +75,7 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 # return 0 if not in ordered or shipped
                 already_ordered = ordered.get(upc, 0)
                 already_shipped = shipped.get(upc, 0)
+                to_order = diff - already_ordered - already_shipped
                 
                 if to_order > 0:
                     #insert our new values 
@@ -112,7 +113,6 @@ def reorder(store: int, cnx: mysql.connector.connection):
 
         # to "reset" the database back to its original state if sql queries fail
         cnx.rollback()
-
 
 """"
 Summary
