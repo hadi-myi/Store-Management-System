@@ -22,6 +22,19 @@ def reorder(store: int, cnx: mysql.connector.connection):
             for row in rows:
                 print(" | ".join(str(value) for value in row))
 
+            # find the difference between max and current inventory, and append that to a list as a tuple
+            differences = []
+            for row in rows:
+                upc = row[0]
+                max_inv = row[1]
+                current_inv = row[2]
+                # calculate difference
+                diff = max_inv - current_inv
+                # append as a tuple
+                differences.append((upc, diff))
+            
+            print(differences)
+
     
     except mysql.connector.Error as err:
         print('Error while executing', cursor.statement, '--', str(err))
