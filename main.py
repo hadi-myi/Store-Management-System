@@ -11,7 +11,7 @@ def main():
 
             # Use / pass the same connection around to multiple subroutines, so they don't have to each open and close
             # separate connections
-            reorder(1,cnx)
+            reorder(2,cnx)
             pass
 
     # Connection errors handled here, with explicit handling for different types of errors.

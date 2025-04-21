@@ -11,6 +11,8 @@ def reorder(store: int, cnx: mysql.connector.connection):
 
     # use cursor for sql queries
     try: 
+
+        # run a select query that gets us the products that store sells, its inventory, the brand, and vendor id and the vendor's price for each product.
         with cnx.cursor() as cursor:
             cursor.execute("""SELECT SELL.upc, SELL.max_inventory, SELL.current_inventory,  PRODUCT.brand_id, VENDOR.vendor_id, VENDOR_PRODUCTS.unit_price 
                            FROM SELL JOIN PRODUCT ON SELL.UPC = PRODUCT.UPC 
@@ -60,19 +62,22 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 GROUP BY REORDER_REQUEST.UPC;""", (store,))
 
             rows3 = cursor.fetchall()
-
+           
+            # store info in a dict
             shipped = {}
             for row in rows3:
                 upc = row[0]
                 qty = row[1]
                 shipped[upc] = qty
 
-
+            # variables to track stats for printing at the end
             reorders_vendor = {}
             new_reorders = []
             total_cost = 0
+            # loop over the 1ist result of the first select query to see which which items need to be reordered and what qty
             for upc, diff, vendor_id, unit_price in differences:
-                # return 0 if not in ordered or shipped
+                
+                # return 0 if UPC not in ordered or shipped
                 already_ordered = ordered.get(upc, 0)
                 already_shipped = shipped.get(upc, 0)
                 to_order = diff - already_ordered - already_shipped
@@ -80,10 +85,13 @@ def reorder(store: int, cnx: mysql.connector.connection):
                 if to_order > 0:
                     #insert our new values 
                     try:
+                        # insert the new reorder request, with the current time and total cost
                         cost = unit_price * to_order
                         cursor.execute("""INSERT INTO REORDER_REQUEST 
                                        (reorder_date, quantity_requested, total_cost, seen_status, vendor_id, UPC, store_id)
                                        VALUES (%s, %s, %s, %s, %s, %s, %s);""", (datetime.now(), to_order, cost, False, vendor_id, upc, store))
+                        
+                        # update these variables to print later.
                         total_cost += cost
                         vendors_reorders = reorders_vendor.get(vendor_id, 0)
                         reorders_vendor[vendor_id] = vendors_reorders + 1
@@ -92,20 +100,22 @@ def reorder(store: int, cnx: mysql.connector.connection):
                         raise ValueError("something went wrong adding order to reorder requests")
             
             cnx.commit()
+            if total_cost > 0:
+                # print the info as instructed in the project doc
+                print(f"Summary for store {store}")
+                print("-" * 10)
+                
+                print(f"total cost of this batch of reorders = {total_cost}")
+                
+                print("-" * 10)
 
-            # print the info as instructed in the project doc
-            print("Summary")
-            print("-" * 10)
-            
-            print(f"total cost of this batch of reorders = {total_cost}")
-            
-            print("-" * 10)
-
-            for upc, qty in new_reorders:
-                print(f"ordered {qty} of item {upc}")
-            print("-" * 10)
-            for vid, i in reorders_vendor.items():
-                print(f"vendor {vid} has to fullful {i} order(s)")
+                for upc, qty in new_reorders:
+                    print(f"ordered {qty} of item {upc}")
+                print("-" * 10)
+                for vid, i in reorders_vendor.items():
+                    print(f"vendor {vid} has to fullful {i} order(s)")
+            else:
+                print(f"Inventory is up to date for store {store}")
 
     
     except mysql.connector.Error as err:
@@ -115,7 +125,7 @@ def reorder(store: int, cnx: mysql.connector.connection):
         cnx.rollback()
 
 """"
-Summary
+Summary for store 1
 ----------
 total cost of this batch of reorders = 5599.82
 ----------
@@ -129,6 +139,32 @@ ordered 82 of item 0000000000000011
 ----------
 vendor 1 has to fullful 5 order(s)
 vendor 2 has to fullful 2 order(s)
+
+
+"""
+
+
+"""
+Summary for store 2
+----------
+total cost of this batch of reorders = 8370.53
+----------
+ordered 33 of item 0000000000000001
+ordered 31 of item 0000000000000002
+ordered 27 of item 0000000000000003
+ordered 36 of item 0000000000000004
+ordered 46 of item 0000000000000005
+ordered 14 of item 0000000000000006
+ordered 77 of item 0000000000000007
+ordered 17 of item 0000000000000008
+ordered 55 of item 0000000000000009
+ordered 115 of item 0000000000000010
+ordered 40 of item 0000000000000011
+ordered 116 of item 0000000000000012
+----------
+vendor 1 has to fullful 7 order(s)
+vendor 2 has to fullful 5 order(s)
+True
 
 
 """
