@@ -46,10 +46,11 @@ def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.conn
         #------------------------------------------------------STEP_3---------------------------------------------------------
         # Storing items requested from vendor in a dictionary with upc as key and quantity requested as value
         # Since these are items requested by the store, the store is expecting them so the dictionary is expected_items
-        
-        # list of reorder_ids being covered by shimpment_no is stored in the set reorder_ids
         expected_items = {}
+        # list of reorder_ids being fulfilled by shimpment (shipment_no) is stored in the set reorder_ids
         reorder_ids = set()
+
+        # Populating the expected item with all the listed reorders 
         for reorder_id, upc, qty in shipment_data:
           expected_items[upc] = qty
           reorder_ids.add(reorder_id)
