@@ -68,14 +68,34 @@ def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.conn
             WHERE shipment_no = %s;
         """, (datetime.now(), shipment_no))
 
-        # 6 Update inventory for each item received
-        ################ How do I make sure current doesn't exceed max???
+
+        # 6 Update inventory for each item received without exceeding max_inventory
         for upc, qty_received in shipment_items.items():
+          # First, get current and max inventory
+          cursor.execute("""
+              SELECT current_inventory, max_inventory
+              FROM SELL
+              WHERE store_id = %s AND UPC = %s;
+          """, (store_id, upc))
+
+          result = cursor.fetchone()
+          if not result:
+            raise ValueError(f"SELL entry not found for store {store_id} and UPC {upc}.")
+
+          current_inv, max_inv = result
+          new_inventory = current_inv + qty_received
+
+          # Optional: Warn if capping is happening
+          if new_inventory > max_inv:
+            print(f"Warning: Stocking {upc} would exceed max_inventory. Capping at {max_inv}.")
+            new_inventory = max_inv
+
+          # Update current_inventory with capped value
           cursor.execute("""
               UPDATE SELL
-              SET current_inventory = current_inventory + %s
+              SET current_inventory = %s
               WHERE store_id = %s AND UPC = %s;
-          """, (qty_received, store_id, upc))
+          """, (new_inventory, store_id, upc))
 
         # 7 Committing all operations to database
         cnx.commit()
