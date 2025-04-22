@@ -3,31 +3,50 @@ from datetime import datetime
 
 def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.connector.connection):
   try:
+    # Establishing connection
     if cnx is None or not cnx.is_connected():
       raise ValueError("Database connection is not active.")
     
   except:
+    # If connection isn't established
+    # Rather than having the program crash we print the statement below
     print("Connection wasn't established")
 
   else: 
+    # If the connection is established
     try:
       with cnx.cursor() as cursor:
 
-        # 1 Fetch all reorder requests linked to the shipment_no and store_id
+        # -----------------------------------------------------STEP_1--------------------------------------------------------- 
+        # Fetching all reorder requests being fulfiled by a the shipment: shipment_no for the store: store_id
+
+        """
+        SQL Query: 
+        The query is listing the reorders (reorder_id) from the REORDER_REQUEST table along with the upc 
+        requested and the quantity of the upc requested in that reorder. The reorders being listed are reorders
+        being fulfilled by the shipment (shipment_no) for the store (store_id).
+        """
         cursor.execute("""
             SELECT RR.reorder_id, RR.UPC, RR.quantity_requested
             FROM SHIPMENT AS S
             JOIN REORDER_REQUEST AS RR ON S.reorder_id = RR.reorder_id
             WHERE S.shipment_no = %s AND RR.store_id = %s;
         """, (shipment_no, store_id))
-
+        
+        # Stores all the reorders along with corresponding upc and quantity requested, listed by the SQL query
         shipment_data = cursor.fetchall()
 
-        # 2 If no such shipment was found, raise an error
+
+        #------------------------------------------------------STEP_2--------------------------------------------------------
+        #  If no shipment was found for shipment_no then error is raised
         if not shipment_data:
           raise ValueError(f"No matching reorder requests found for shipment {shipment_no} and store {store_id}.")
 
-        #3 Expected items from vendore stored in dictionary with upc as key and quantity requested as value
+
+        #------------------------------------------------------STEP_3---------------------------------------------------------
+        # Storing items requested from vendor in a dictionary with upc as key and quantity requested as value
+        # Since these are items requested by the store, the store is expecting them so the dictionary is expected_items
+        
         # list of reorder_ids being covered by shimpment_no is stored in the set reorder_ids
         expected_items = {}
         reorder_ids = set()
