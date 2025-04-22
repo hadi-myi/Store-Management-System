@@ -2,6 +2,7 @@ import mysql.connector
 from mysql.connector import errorcode
 from db_connection import get_connection
 from reorder_hadi import reorder
+from project_part3 import stock
 
 def main():
     # Try to open the SQL connection...

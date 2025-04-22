@@ -2,89 +2,99 @@ import mysql.connector
 from datetime import datetime
 
 def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.connector.connection):
-
-  if cnx is None or not cnx.is_connected():
-    raise ValueError("Database connection is not active.")
-
   try:
-    with cnx.cursor() as cursor:
+    if cnx is None or not cnx.is_connected():
+      raise ValueError("Database connection is not active.")
+    
+  except:
+    print("Connection wasn't established")
 
-      # Step 1: Fetch all reorder requests linked to this shipment number and store
-      cursor.execute("""
-          SELECT RR.reorder_id, RR.UPC, RR.quantity_requested
-          FROM SHIPMENT S
-          JOIN REORDER_REQUEST RR ON S.reorder_id = RR.reorder_id
-          WHERE S.shipment_no = %s AND RR.store_id = %s;
-      """, (shipment_no, store_id))
+  else: 
+    try:
+      with cnx.cursor() as cursor:
 
-      shipment_data = cursor.fetchall()
-
-      # Step 2: If no such shipment was found, raise an error
-      if not shipment_data:
-        raise ValueError(f"No matching reorder requests found for shipment {shipment_no} and store {store_id}.")
-
-      # Step 3: Prepare a dictionary of expected items and a set of reorder_ids involved
-      expected_items = {}
-      reorder_ids = set()
-      for reorder_id, upc, qty in shipment_data:
-        expected_items[upc] = qty
-        reorder_ids.add(reorder_id)
-
-      # Step 4: Validate that all items in the stocker's report are expected
-      for upc in shipment_items:
-        if upc not in expected_items:
-          raise ValueError(f"Invalid shipment item {upc}!")
-
-      # Step 5: Mark all SHIPMENT rows with this shipment_no as received now
-      cursor.execute("""
-          UPDATE SHIPMENT SET received_date = %s
-          WHERE shipment_no = %s;
-      """, (datetime.now(), shipment_no))
-
-      # Step 6: Update inventory for each item received
-      for upc, qty_received in shipment_items.items():
+        # 1 Fetch all reorder requests linked to the shipment_no and store_id
         cursor.execute("""
-            UPDATE SELL
-            SET current_inventory = current_inventory + %s
-            WHERE store_id = %s AND UPC = %s;
-        """, (qty_received, store_id, upc))
+            SELECT RR.reorder_id, RR.UPC, RR.quantity_requested
+            FROM SHIPMENT AS S
+            JOIN REORDER_REQUEST AS RR ON S.reorder_id = RR.reorder_id
+            WHERE S.shipment_no = %s AND RR.store_id = %s;
+        """, (shipment_no, store_id))
 
-      # Step 7: All operations successful, commit to database
-      cnx.commit()
+        shipment_data = cursor.fetchall()
 
-      # Step 8: Print vendor’s expected shipment
-      print(f"\n--- Shipment #{shipment_no} Processed for Store {store_id} ---")
-      print("Expected from Vendor:")
-      for upc, qty in expected_items.items():
-        print(f"  UPC: {upc} - Qty: {qty}")
+        # 2 If no such shipment was found, raise an error
+        if not shipment_data:
+          raise ValueError(f"No matching reorder requests found for shipment {shipment_no} and store {store_id}.")
 
-      # Step 9: Print what the stocker actually received
-      print("\nReceived by Stocker:")
-      for upc, qty in shipment_items.items():
-        print(f"  UPC: {upc} - Qty: {qty}")
+        #3 Expected items from vendore stored in dictionary with upc as key and quantity requested as value
+        # list of reorder_ids being covered by shimpment_no is stored in the set reorder_ids
+        expected_items = {}
+        reorder_ids = set()
+        for reorder_id, upc, qty in shipment_data:
+          expected_items[upc] = qty
+          reorder_ids.add(reorder_id)
 
-      # Step 10: Compare and report discrepancies
-      print("\nDiscrepancies:")
-      has_discrepancy = False
-      for upc, expected_qty in expected_items.items():
-        received_qty = shipment_items.get(upc, 0)
-        if received_qty != expected_qty:
-          print(f"  UPC: {upc} - Expected: {expected_qty}, Received: {received_qty}")
-          has_discrepancy = True
-      if not has_discrepancy:
-        print("  None")
+        # 4 All items in the shipment_no should be expected from vendor
+        # In other words a shipment can't just have items that the store never expected/requested from the vendor
+        for upc in shipment_items:
+          if upc not in expected_items:
+            raise ValueError(f"Invalid shipment item {upc}!")
 
-  # Step 11: On any SQL or logic error, rollback and notify the user
-  except mysql.connector.Error as err:
-    print(f"MySQL Error: {err}")
-    cnx.rollback()
-  except ValueError as verr:
-    print(f"Error: {verr}")
-    cnx.rollback()
+        # 5 All the rows of SHIPMENT table with this shipment_no should be marked as received
+        # In other words recieved_data should be updated
+        cursor.execute("""
+            UPDATE SHIPMENT SET received_date = %s
+            WHERE shipment_no = %s;
+        """, (datetime.now(), shipment_no))
+
+        # 6 Update inventory for each item received
+        ################ How do I make sure current doesn't exceed max???
+        for upc, qty_received in shipment_items.items():
+          cursor.execute("""
+              UPDATE SELL
+              SET current_inventory = current_inventory + %s
+              WHERE store_id = %s AND UPC = %s;
+          """, (qty_received, store_id, upc))
+
+        # 7 Committing all operations to database
+        cnx.commit()
+
+        # 8 Printing expected shipment from vendor 
+        print(f"\n--- Shipment #{shipment_no} Processed for Store {store_id} ---")
+        print("Expected from Vendor:")
+        for upc, qty in expected_items.items():
+          print(f"  UPC: {upc} - Qty: {qty}")
+
+        # 9 Printing what stocker received
+        print("\nReceived by Stocker:")
+        for upc, qty in shipment_items.items():
+          print(f"  UPC: {upc} - Qty: {qty}")
+
+        # 10 Printing wether descrepencies exist or not
+        print("\nDiscrepancies:")
+        has_discrepancy = False
+        for upc, expected_qty in expected_items.items():
+          received_qty = shipment_items.get(upc, 0)
+          if received_qty != expected_qty:
+            print(f"  UPC: {upc} - Expected: {expected_qty}, Received: {received_qty}")
+            has_discrepancy = True
+        if not has_discrepancy:
+          print("  No discrepencies")
+
+    # 11 On any SQL or logic error, rollback and notify the user
+    except mysql.connector.Error as err:
+          print('Error while executing', cursor.statement, '--', str(err))
+          # to "reset" the database back to its original state if sql queries fail
+          cnx.rollback()
+    # On value erro, rollback and notify the user
+    except ValueError as verr:
+      print(f"Error: {verr}")
+      cnx.rollback()
 
 
   """
-  For late use
+  Working on doc string
   Process an incoming shipment for a store.
 
   Parameters:
