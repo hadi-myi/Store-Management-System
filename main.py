@@ -1,7 +1,7 @@
 import mysql.connector
 from mysql.connector import errorcode
 from db_connection import get_connection
-from reorder_hadi import reorder
+from project_part1 import reorder
 from project_part3 import stock
 
 def main():
@@ -14,7 +14,7 @@ def main():
             # separate connections
             #reorder(2,cnx)
 
-            stock(1, 3, {'0000000000000009': 24})
+            stock(1, 3, {'0000000000000009': 24}, cnx=cnx)
             pass
 
     # Connection errors handled here, with explicit handling for different types of errors.
