@@ -20,14 +20,12 @@ def main():
             # reorder function
             #reorder(2,cnx)
 
-<<<<<<< HEAD
-            #stock(1, 5, {'0000000000000012': 3}, cnx=cnx)
-=======
+
             # shipment function (Should return a list of one fufilled order (order seven) and a shipping manifest containing one laptop stand
             #shipment(1, "2025-04-13 09:15:00", [7], {"0000000000000008" : 6}, 7, 2, cnx)
 
             # stock function
-            stock(1, 5, {'0000000000000012': 3}, cnx=cnx)
+            #stock(1, 5, {'0000000000000012': 3}, cnx=cnx)
 
             # online_order function
             #test_order = {
@@ -69,7 +67,7 @@ def main():
             UPC: 0000000000000004, Quantity: 20
             True
             """
->>>>>>> e7eb86f888f058526a4f4a4137da10452592b3c8
+
             pass
 
     # Connection errors handled here, with explicit handling for different types of errors.
