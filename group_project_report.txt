@@ -1,0 +1,169 @@
+CS314 Databases
+Final Project Report
+By
+Grace Poulton
+Hadi Imtiaz Hadi
+Harsh Patel
+Nawvatin Azhar
+
+
+Summary of the database design requirements
+Proof of work:
+Github link: https://github.com/hadi-myi/ghhn-final-project
+
+Picture:
+
+
+
+
+Assumption:
+The stores can cancel reorder requests only if the seen_status doesn’t say 1 (seen). This means stores have the flexibility to cancel any multiple reorder request made for a product and combine them into one and put in a new reorder request with the final quantity or just can cancel any reorder request as long as the vendor didn’t see it. Similarly, a vendor only prepares to send out shipments for the reorders they have seen.
+
+We are assuming products must be of a brand and a brand must have a vendor. There cannot be any brand without a vendor and there cannot be any vendor without brands under it.
+
+We decided to fail the whole online order if a customer tries to buy any one thing that is out of stock. It doesn’t matter if they have, for say— Oreos in their order which are in stock and Lays in their order which are not in stock, they are not getting any Oreos as we will fail their order because they tried ordering Lays which are out of stock. It is what it is, you don’t always get what you want.
+
+Nothing fails at the time of payment for in-person orders and therefore in-person orders don’t fail.
+
+Requirements:
+Product primary key: Given that ‘upc’ already uniquely identifies a product, we decided to make it the primary key for the `product` table rather than using a synthetic key.
+
+Brand primary & foreign key: Based on assumption (2), brands have ‘vendor_id’ as their foreign key and also have ‘brand_id’ as a synthetic key as a vendor can have multiple brands.
+
+Supplied relationship attribute in vendor table: We decided to include all the attributes from the `supplied` relationship except the derived attribute into the vendor table. As they share a (1,1) and (0,n) relationship— all attributes from the relationship need to be subsumed by the table that is not (1,1).
+
+Sell table & it’s primary key: We decided to make the `sell` relationship its own table as it is representing the inventory of a specific product at a specific store. Therefore, it has ‘store_id’ and ‘upc’ as its foreign key, these also uniquely identify an inventory and therefore are also primary keys.
+
+Sell table ‘overridden_price’ attribute: ‘overriden_price’ can also represent the original price if it hasn’t been overridden. In a way a store can override the price to be the original price and thus the ‘overridden_price’ just shows the price the store is selling the product for.
+
+Package type table: `package type` is a multi-value attribute for a product as a product can be for example— fragile and also include a lithium battery. 
+
+Shipment table attribute ‘shipment_no’: As shipment contains reorders, it can uniquely be identified via ‘reorder_id’ which is why it is both a foreign key and a primary key. However, we have ‘shipment_no’ which is neither a primary key nor a foreign key, since a shipment can contain multiple reorders, this attribute is there to identify what reorders are being met in a specific shipment.
+
+Customer table: We decided that we needed a ‘customer_country’ attribute, as BMart operates worldwide, a BMart member from the UK can also shop (only in-person) at a BMart store in the US. Customer table has ‘app_user’ which indicates app users as 1 and non app users as 0.
+
+Order Table: In the order table the ‘order_type’ represents online order as 0 and in-person order as 1. The ‘order_status’ represents failed orders as 0 and passed orders as 1. Based on assumption (4) in-person orders will always pass because it becomes an order at the time of payment and an online order can either pass or can be the only one to fail based on assumption (3) as opposed to in-person order. Moreover, the order table is representing a specific order of a customer as a whole, and not orders of each specific product.
+
+Order includes: We decided to make the `order include` relationship a table to represent what products are in an order and what the quantity is for a specific product.
+
+Region: ‘customer_region’ and ‘store_region’ are basically states in terms of US and province in terms of other countries.
+
+Changes:
+One of the major changes we made to the database schema was in the STORE table. For the hours of operation, we originally had just had each day such as Monday Varchar(16)... so on. We replaced this part with Hadi and Harsh’s version. This version included Monday BOOL, M_open TIME, M_close TIME. We made this change because it is cleaner and it allows the store to open or close on whichever days they want as well as set custom hours of operation from open to close on each day of the week.
+
+The next changes we made were minimal, which was adding NN to some of the attributes such as store_id and customer_id in the ORDER table. From the ORDER_INCLUDES table we made UPC and order_id NN. 
+
+In the ORDER_INCLUDES table we mistakenly had auto_increment for the order_id but because this is a foreign key, we removed this auto_increment.
+
+These were the major changes we made from the original Database Schema. Basically we fixed all the feedback made on Nawvatin and Grace’s db design.
+ER Diagram
+
+
+
+Database Schema 
+(Zoom to get a clear view)
+
+
+
+
+Algorithm Descriptions 
+Project part 1 (Reorder by Hadi):
+Reorder Function algorithm:
+
+Use a select query to get all the products from a specified store, get the inventory and brand information, the vendor id and each unit price.
+
+Calculate the difference between the max and current inventory and store all these as a list of tuples in the form (upc,diff, vendor_id, unit_price) sort this, so all UPC's are in order, not super necessary but helped while I was writing the function
+
+From the reorder_requests table, get all the UPC and sum of the total amounts requested for that certain store, and store that in a dictionary in the form {UPC:qty}
+
+From the shipments table, do something similar, get all the shipments that are not received, with the reorder_id that are already sent out.
+
+calculate the actual quantity to reorder, and insert the new reorder request.
+
+Track total cost, number of products per order, and number of orders per order and print them.
+Project part 2 (Shipment by Grace):
+Shipment Function algorithm:
+
+This function takes in 7 parameters: an int representing store_id, a string representing expected delivery (for the expected delivery date, a list specifying the reorders the vendor is able to fufill, a dictionary representing the items and quantities of items they are able to provide at that time (this is represented by UPC and the quantity_requested attributes), an int representing shipment_number, an int representing vendor_id, and a variable named cnx representing the mySQL connection object. I assumed for this function that the vendor could fufill multiple reorders, but they could never partially fufill reorders, and therefore each shipment row should have unique reorder_ids. I also assumed that a vendor could only fufill orders that are set under their own vendor_id, this is why I added a seperate vendor parameter to ensure that only the SELECT queries only took out rows from that vendor. 
+	Then the shipment function worked as follows:
+It makes a SELECT query into the database to get the UPC, quantity requested, and reorder_id from the REORDER_REQUEST table. Based on the condition that the store_id needs to match the store parameter given, and that the vendor_id needs to match the vendor parameter given. 
+-        Go through the list of tuples (UPC, quantity_requested, and reorder_id) make sure to only evaluate the ones that are in the reorder_list, and raise an error if there are any items in the reorders list that cannot be fulfilled based on what is in the shipment_items dictionary. 
+-       Inform the user if a reorder cannot be fulfilled, and ask if they would like to continue the shipment process, if yes then less shipment inserts will be made to the table than expected, if no stop ALL Shipment insertions and print CANCELLED SHIPMENT to the user. 
+-  If there is enough of a product to refill a reorder_request then add that product’s UPC, quantity, and reorder_id to a list called fulfilled_orders. 
+- then update the shipment dictionary to reflect that there are less of that product available than before
+- then go through the list of fulfilled orders to print to the user all of the reorders that were able to be refilled
+- during this same looping process add each of these shipments to the shipment database through an INSERT query
+- then go through the list of fulfilled orders again, and use their UPC number to find the product’s actual name from the product’s table using a SELECT QUERY. 
+- then print out the product’s name and quantity for the shipping manifest
+- print out the number of reorder_request that vendor has left for the given store; do this by subtracting the number of fulfilled orders from the number of reorder_requests in total for that store
+- Make a SELECT query to find all of the Reorder_Requests from that vendor.
+- print to the user the number of reorder requests left for that vendor in total; do this by subtracting the number of fulfilled orders from the number of reorder_requests in total / length of that previous select query.
+Project part 3 (Stock by Nawvatin):
+Stock Function algorithm:
+
+	The stock function is called using a store_id, a shipment_no and the shipment_items. The shipment_no references a specific shipment and the store_id references the store whose reorders are being fulfilled by the shipment_no and the shipment_items is a dictionary holding the upc(s) received in the shipment_no as keys and the quantity received as values. 
+
+We first try to establish a connection and if the connection fails we print out that “Connection wasn’t establish”
+
+If the connection is established, the function fetches all the reorders to be covered by the shipment_no along with the upc it should cover along with the quantity. If for the shipment_no there are no reorders, a value error is raised letting the stocker know. 
+
+If there are reorders the shipment_no should be covering, then we store the reorders in a set and the corresponding upc each reorder is requesting along with its quantity in the dictionary expected_items. This dictionary holds all the items the store is expecting from the vendors in the shipment (shipment_no).
+
+Then the function checks if the item received is an expected item or not. It achieves this by checking items in shipment_items against items in expected_items. If by any chance it received item(s) not expected, it raises a value error letting the stocker know.
+	
+	Otherwise, shipment_item has expected items and therefore that shipment is fulfilled, thus the function updates the database by adding the received date for the shipment.
+
+	The function then updates the current inventory of the store (store_id). If the current_inventory exceeds max_inventory, then current_inventory is set as the max_inventory and a warning message is printed out.
+
+
+The function then commits the changes to the database. The function then prints useful information for the stocker, such as what was expected versus what was received and what the discrepancies are if there are any. There are two except blocks to handle two different kinds of error the function might give. 
+Project part 4 (Online_order by Harsh):
+Online_order function algorithm:
+	The algorithm starts off with checking if the store and customer id are valid, if they are, then we continue on, but if the check fails, then it's outputted to the customer. 
+
+Next I used a SELECT statement to check if the items ordered are in stock at the store they were ordered at. If it's not then print out the error message that this store does not have x item.
+
+ If the item is in the store, then I checked if the quantity of that item ordered is in stock at that store. If it's not then print out an error message. I then checked the current stores region and then used a SQL query to find other stores in that region with enough stock for the item requested. I then printed out which stores are within that region and have enough stock to fulfill the order.
+	
+	If the store does have enough quantity to fulfill the order, then we get the total price and we add the requested order into the items_to_add, a list of tuples which contains a tuple of (store_id, customer_id, upc, qty).
+
+	If the order is unfulfilled because of insufficient inventory, then print an error message and also use an INSERT statement into the ORDERS table to store as a failed order by making the attribute order_status = 0.
+
+	If all the items are available, then I inserted into the ORDERS table the order_type, order_status, order_date, total_order_price, store_id, customer_id. I then had another query to get the most recent order_id (for the order just placed) so that info can be used. I then inserted into the ORDER_INCLUDES table the order_id that we just got, upc, and buying quantity. I then updated the SELL table to reduce the inventory of the store after the order is placed.
+
+	Finally if everything works, then the customer receives a success message along with information about their order, including which items they ordered, quantity, and total price of the order.
+Appendix:
+SELECT * FROM STORE;
+
+SELECT * FROM VENDOR;
+
+
+
+
+SELECT * FROM BRAND;
+
+SELECT * FROM PRODUCT;
+
+SELECT * FROM VENDOR_PRODUCTS;
+
+
+SELECT * FROM SELL;
+
+SELECT * FROM CUSTOMER;
+
+SELECT * FROM ORDERS;
+
+
+
+
+SELECT * FROM REORDER_REQUEST;
+
+SELECT * FROM SHIPMENT;
+
+SELECT * FROM ORDER_INCLUDES;
+
+SELECT * FROM PRODUCT_TYPE
+Empty - we did not need anything here 
+SELECT * FROM PACKAGE_TYPE
+Empty - We did not need anything here
+
