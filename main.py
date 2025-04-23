@@ -28,10 +28,10 @@ def main():
 
             # online_order function
             #test_order = {
-                '0000000000000001': 2,
-                '0000000000000003': 5,
-                '0000000000000005': 1,
-            }
+               # '0000000000000001': 2,
+               # '0000000000000003': 5,
+               # '0000000000000005': 1,
+           # }
              #online_order(store_id=1, customer_id=1, order_items=test_order, cnx=cnx)
             
             """Test 1:
