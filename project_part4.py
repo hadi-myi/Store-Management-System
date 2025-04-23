@@ -3,11 +3,11 @@ from mysql.connector import errorcode
 # The connection part of the code was used from the safe connection with helper functions shared connections file from class
 
 def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.connector.connection):
-    """ Function responsible for placing an online order. this function directly interacts with the 
+    """ Function responsible for placing an online order. This function directly interacts with the 
     database to place an order for a customer at a specific store. It checks the availability of items,
-    calculates the total price, and updates the inventory accordingly. If any items are out of stock,
-    it will print a message and log the order as unfulfilled in the database.
-    
+    calculates the total price, and updates the inventory accordingly. If there are any issues with the order,
+    it will print am error message and log the order as unfulfilled in the database.
+
     : param store_id: The ID of the store to order from.
     : param customer_id: The ID of the customer placing the order.
     : param order_items: A dictionary of items to order, where the key is the UPC and the value is the quantity.
@@ -22,35 +22,44 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
     try:
         # Open a cursor for SQL work
         with cnx.cursor() as cursor:
-             # Checks to see if the store is valid, if not then print invalid
-            cursor.execute("SELECT store_id FROM STORE WHERE store_id = %s;", (store_id,))
-            if not cursor.fetchall():
+            # Checks to see if the store is valid, if not then print invalid
+            cursor.execute("""SELECT store_id 
+                           FROM STORE 
+                           WHERE store_id = %s;""", 
+                           (store_id,))
+            store_res = cursor.fetchall()
+            if not store_res:
                 print(f"Invalid store {store_id}")
                 return
 
             # Checks to see if the customer is valid, if not then print invalid
-            cursor.execute("SELECT customer_id FROM CUSTOMER WHERE customer_id = %s;", (customer_id,))
-            if not cursor.fetchall():
+            cursor.execute("""SELECT customer_id 
+                           FROM CUSTOMER 
+                           WHERE customer_id = %s;""", 
+                           (customer_id,))
+            customer_res = cursor.fetchall()
+            if not customer_res:
                 print(f"Invalid customer {customer_id}")
                 return
             
             # Variables to track nessecary information for order
-            insufficient_inventory = []
+            insufficient_inventory = [] # List of tuples
             total_price = 0
-            items_to_add = []
+            items_to_add = [] # List of tuples
 
             # loop through the order items and check if they are in stock
             for upc, qty in order_items.items():
                 cursor.execute("""SELECT s.current_inventory, s.overriden__price, p.product_name 
-                               FROM SELL AS s JOIN PRODUCT AS p ON s.upc = p.upc 
+                               FROM SELL AS s 
+                               JOIN PRODUCT AS p ON s.upc = p.upc 
                                WHERE s.store_id = %s AND s.upc = %s;""", 
                                (store_id, upc))
-                # get the result
                 result = cursor.fetchall()
 
                 if not result:
                     print(f"Item {upc} not found in store {store_id}.")
                     continue
+
                 # Access info from result
                 row = result[0]
                 current_inventory = row[0]
@@ -62,20 +71,22 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
                     print(f"Insufficient inventory for item {product_name}, requested: {qty}, in stock: {current_inventory}")
                     insufficient_inventory.append((upc, qty))
 
-                    #Check the this stores state
-                    cursor.execute("SELECT store_region FROM STORE WHERE store_id = %s;", (store_id,))
+                    #Check the stores state
+                    cursor.execute("""SELECT store_region 
+                                   FROM STORE WHERE store_id = %s;""", 
+                                   (store_id,))
                     region_result = cursor.fetchall()
 
+                    # Grab the region from the result
                     region = region_result[0][0]
                     print(f"Store {store_id} is located in region: {region}")
 
                     # Find other stores in the same region with enough stock
-                    cursor.execute("""
-                        SELECT s.store_id, s.current_inventory
-                        FROM SELL AS s
-                        JOIN STORE AS st ON s.store_id = st.store_id
-                        WHERE s.upc = %s AND s.current_inventory >= %s AND st.store_region = %s AND s.store_id != %s """, 
-                        (upc, qty, region, store_id))
+                    cursor.execute("""SELECT s.store_id, s.current_inventory 
+                                   FROM SELL AS s
+                                   JOIN STORE AS st ON s.store_id = st.store_id
+                                   WHERE s.upc = %s AND s.current_inventory >= %s AND st.store_region = %s AND s.store_id != %s """, 
+                                   (upc, qty, region, store_id))
                     # Store the stores with enoguh stcok within the region in this variable
                     other_store_results = cursor.fetchall()
 
@@ -86,15 +97,15 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
                     else:
                         print(f"No other stores in region {region} have enough stock for item {upc}")
                 else:
-                    # Calculate the total price
+                    # get the total price
                     total_price += overridden_price * qty
                     items_to_add.append((store_id, customer_id, upc, qty))
-            # if the order is unfulfilled, print to the customer and track as an unfulfilled order in the ORDERS table
+            # If the order is unfulfilled, print to the customer and track as an unfulfilled order in the ORDERS table
             if insufficient_inventory:
                 print("Some items could not be ordered because of insufficient inventory:")
                 for upc, qty in insufficient_inventory:
                     print(f"UPC: {upc}, Quantity: {qty}")
-                 # Log as failed order in the ORDERS table by making the attribute order_status = 0
+                 # Store as failed order in the ORDERS table by making the attribute order_status = 0
                 cursor.execute("""
                     INSERT INTO ORDERS (order_type, order_status, order_date, total_order_price, store_id, customer_id)
                     VALUES (%s, %s, NOW(), %s, %s, %s);""", 
@@ -102,8 +113,7 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
                 cnx.commit()  
                 return
             
-            # If all items are available, print the order summary and insert into the database
-            # Insert the order into ORDERS
+            # If all items are available, insert into the ORDERS table in the database
             cursor.execute(
                 """INSERT INTO ORDERS (order_type, order_status, order_date, total_order_price, store_id, customer_id) 
                 VALUES (%s, %s, NOW(), %s, %s, %s);""",
@@ -115,12 +125,13 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
                 FROM ORDERS 
                 WHERE customer_id = %s AND store_id = %s;""",
                 (customer_id, store_id))
+            # grabs first row and first element
             order_id = cursor.fetchall()[0][0]
 
-            # Insert each item into ORDER_INCLUDES and update inventory
+            # Add each item into ORDER_INCLUDES and update inventory
             for store_id, customer_id, upc, qty in items_to_add:
                 cursor.execute(
-                    """ INSERT INTO ORDER_INCLUDES (order_id, UPC, buying_quantity) 
+                    """INSERT INTO ORDER_INCLUDES (order_id, UPC, buying_quantity) 
                     VALUES (%s, %s, %s); """,
                     (order_id, upc, qty))
                 cursor.execute(
@@ -130,9 +141,10 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
             # Commit changes
             cnx.commit()
 
-            # Print order summary
+            # Prints the order summary
             print(f"Order {order_id} placed successfully for customer {customer_id} at store {store_id}")
             print("Items Ordered:")
+            # Print the upc and qty 
             for _, _, upc, qty in items_to_add:
                 print(f"UPC: {upc}, Quantity: {qty}")
             print("Total price:", total_price)
@@ -140,8 +152,17 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
     # This code should handle any issues DURING SQL work.
     except mysql.connector.Error as err:
         print('Error while executing', cursor.statement, '--', str(err))
-
         # If some part of our SQL queries errored, explicitly rollback all of them
         # to "reset" the database back to its original state. Only needed for SQL
         # queries that alter the database.
         cnx.rollback()
+
+""" 
+Test 
+
+test_order = {
+    '0000000000000001': 2,
+}
+online_order(store_id=1, customer_id=1, order_items=test_order, cnx=cnx)
+
+"""
