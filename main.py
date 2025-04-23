@@ -14,7 +14,7 @@ def main():
             # separate connections
             #reorder(2,cnx)
 
-            stock(1, 5, {'0000000000000012': 3}, cnx=cnx)
+            #stock(1, 5, {'0000000000000012': 3}, cnx=cnx)
             pass
 
     # Connection errors handled here, with explicit handling for different types of errors.
