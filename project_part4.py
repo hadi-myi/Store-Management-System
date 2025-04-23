@@ -68,7 +68,7 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
 
                 # Check if the quantity ordered is available
                 if current_inventory < qty:
-                    print(f"Insufficient inventory for item {product_name}, requested: {qty}, in stock: {current_inventory}")
+                    print(f"Insufficient inventory for item {product_name}, requested:{qty}, in stock:{current_inventory}")
                     insufficient_inventory.append((upc, qty))
 
                     #Check the stores state
@@ -100,9 +100,10 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
                     # get the total price
                     total_price += overridden_price * qty
                     items_to_add.append((store_id, customer_id, upc, qty))
+
             # If the order is unfulfilled, print to the customer and track as an unfulfilled order in the ORDERS table
             if insufficient_inventory:
-                print("Some items could not be ordered because of insufficient inventory:")
+                print("Some items could not be ordered due to insufficient inventory:")
                 for upc, qty in insufficient_inventory:
                     print(f"UPC: {upc}, Quantity: {qty}")
                  # Store as failed order in the ORDERS table by making the attribute order_status = 0
@@ -121,11 +122,13 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
 
             # Get the most recent order_id for this customer at this store
             cursor.execute(
-                """SELECT MAX(order_id) 
+                """SELECT order_id
                 FROM ORDERS 
-                WHERE customer_id = %s AND store_id = %s;""",
+                WHERE customer_id = %s AND store_id = %s
+                ORDER BY order_id DESC
+                LIMIT 1;""",
                 (customer_id, store_id))
-            # grabs first row and first element
+            # grabs the order id from the most recent order
             order_id = cursor.fetchall()[0][0]
 
             # Add each item into ORDER_INCLUDES and update inventory
@@ -158,11 +161,35 @@ def online_order(store_id: int, customer_id: int, order_items: dict, cnx: mysql.
         cnx.rollback()
 
 """ 
-Test 
+Test 1:
 
 test_order = {
     '0000000000000001': 2,
+    '0000000000000003': 5,
+    '0000000000000005': 1,
 }
 online_order(store_id=1, customer_id=1, order_items=test_order, cnx=cnx)
 
+Output:
+Order 20 placed successfully for customer 1 at store 1
+Items Ordered:
+UPC: 0000000000000001, Quantity: 2
+UPC: 0000000000000003, Quantity: 5
+UPC: 0000000000000005, Quantity: 1
+Total price: 579.31
+True
+
+Test 2:
+test_order = {
+                '0000000000000004': 20,
+            }
+            online_order(store_id=1, customer_id=1, order_items=test_order, cnx=cnx)
+
+Output:
+Insufficient inventory for item Energy Drink, requested:20, in stock:1
+Store 1 is located in region: IL
+Store 3 in region IL has enough stock 31 of item 0000000000000004
+Some items could not be ordered due to insufficient inventory:
+UPC: 0000000000000004, Quantity: 20
+True
 """
