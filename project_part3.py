@@ -76,6 +76,12 @@ def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.conn
         #-----------------------------------------------------STEP_5----------------------------------------------------------
         # All the rows of the SHIPMENT table with the shipment: shipment_no should be marked as received
         # In other words recieved_data should be updated and therefore shoudn't be null
+
+        """
+        SQL Query: 
+        The query is updating the recieved_data attribute of the SHIPMENT table. The %s placeholders are replaced 
+        by the values of the function and variale in the specific order as they are written.
+        """
         cursor.execute("""
             UPDATE SHIPMENT SET received_date = %s
             WHERE shipment_no = %s;
@@ -86,6 +92,12 @@ def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.conn
         # We must make sure that current_inventory doesn't exceed max_inventory
         for upc, qty_received in shipment_items.items():
           # Getting the current and max inventory for each product in the shipment: shipment_no
+
+          """
+          SQL Query: 
+          The query is getting the current inventory and max inventory of a specific item at a specific store (store_id).
+          The %s placeholders are replaced by the values of the parameter and variale in the specific order as they are written.
+          """
           cursor.execute("""
               SELECT current_inventory, max_inventory
               FROM SELL
@@ -112,6 +124,12 @@ def stock(store_id: int, shipment_no: int, shipment_items: dict, cnx: mysql.conn
           # then current inventory is stocked to max inventry 
           # as new_inventory is updated to be max inventory 
           # when current inventory exceeds max inventory
+
+          """
+          SQL Query: 
+          The query is updating the current inventory  of a specific item at a specific store (store_id).
+          The %s placeholders are replaced by the values of the variables and parameter in the specific order as they are written.
+          """
           cursor.execute("""
               UPDATE SELL
               SET current_inventory = %s
