@@ -1,7 +1,9 @@
 BMart Inventory & Order Management - CS314 Final Project.
+
 Hadi Imtiaz, Harsh Patel, Nawvatin Azhar & Grace Poulton
 
 This system manages store inventory, reorder requests, vendor shipments, stocking, and online orders for BMart stores.
+
 Key Functions
 
     reorder(store_id)
